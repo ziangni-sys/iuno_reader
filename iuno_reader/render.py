@@ -271,9 +271,15 @@ body.w3{--zhw:600;--zhb:900;--enstroke:.6px}
 /* 英文：左对齐让词距均匀（两端对齐会把空隙撑得忽宽忽窄，眼睛要不停找词的边界），再稍微加宽词距 */
 body .en{text-align:left;word-spacing:.06em;hyphens:manual}
 body.wide .en{word-spacing:.26em}
-/* 加粗三选一：首字母（核心词的前几个字母加粗，study → **st**udy）/ 整词（核心词深色稍粗，其余变浅灰）/ 关 */
+/* 加粗四选一：首字母（核心词的前几个字母加粗，study → **st**udy）/ 渐变 / 整词（核心词深色稍粗，其余变浅灰）/ 关 */
 .w{cursor:pointer;border-radius:2px}
 body.bio .en .w.k .h{font-weight:bold}
+/* 渐变：首字母那几个字母一个比一个细、一个比一个淡，attention 的 a 最黑最粗、t 淡一点、下一个 t 再淡一点；
+   --g 从 1 降到 1/n（脚本拆字母时写上）。英文正文稍微调浅，渐变才有地方落到正文的颜色上 */
+body.grad{--entail:#4a4a4a}
+body.grad .en .s{color:var(--entail)}
+body.grad .en .w.k .h .hg{color:color-mix(in srgb,#000 calc(var(--g) * 100%),var(--entail));
+  -webkit-text-stroke:calc(var(--enstroke) + var(--g) * .6px) currentColor}
 body.kw .en .w{color:#8d8d8d}
 body.kw .en .w.k{color:var(--ink);-webkit-text-stroke:calc(var(--enstroke) + .4px) currentColor}
 /* 点词高亮：最多三个词，三种底色 */
@@ -442,14 +448,20 @@ function sw(id,cls,on_txt,off_txt,key){const el=document.getElementById(id);if(!
   el.addEventListener('click',()=>set(!document.body.classList.contains(cls)));
   let v='0';try{v=localStorage.getItem(key)||'0'}catch(e){}set(v==='1');}
 sw('wst','wide','加宽词距：开','加宽词距：关','iuno-reader-wide');
-// 多选一的开关：字体粗细 w1/w2/w3，加粗方式 none/bio/kw
-function pick(sel,all,key,dflt){const B=document.querySelectorAll(sel);
+// 多选一的开关：字体粗细 w1/w2/w3，加粗方式 none/bio/grad/kw；then：切换后要做的事
+function pick(sel,all,key,dflt,then){const B=document.querySelectorAll(sel);
   const set=v=>{all.forEach(c=>document.body.classList.remove(c));if(v!=='none') document.body.classList.add(v);
-    B.forEach(x=>x.classList.toggle('on',x.dataset.w===v));try{localStorage.setItem(key,v)}catch(e){}};
+    B.forEach(x=>x.classList.toggle('on',x.dataset.w===v));try{localStorage.setItem(key,v)}catch(e){}if(then)then(v);};
   B.forEach(x=>x.addEventListener('click',()=>set(x.dataset.w)));
   let v=dflt;try{v=localStorage.getItem(key)||dflt}catch(e){}set(v);}
 pick('.weights span',['w1','w2','w3'],'iuno-reader-weight','w2');
-pick('.bolds span',['bio','kw'],'iuno-reader-bold','bio');
+// 渐变要逐个字母上样式：第一次切到「渐变」时才把首字母拆成一个字母一个 span，--g 从 1 降到 1/n
+let graded=false;
+function gradeBold(){if(graded)return;graded=true;
+  document.querySelectorAll('.en .w.k .h').forEach(h=>{const cs=Array.from(h.textContent),n=cs.length;h.textContent='';
+    cs.forEach((c,i)=>{const x=document.createElement('span');x.className='hg';x.style.setProperty('--g',((n-i)/n).toFixed(3));
+      x.textContent=c;h.appendChild(x);});});}
+pick('.bolds span',['bio','grad','kw'],'iuno-reader-bold','grad',v=>{if(v==='grad')gradeBold();});
 // arXiv 上个别图片文件是坏的（例如 2602.04212v3 的图 1 只传了一截）：加载失败就换同一篇更早版本里的同名图片
 function olderVersion(im){const m=im.src.match(/(\d{4}\.\d{4,5})v(\d+)\//);
   if(m&&+m[2]>1) im.src=im.src.replace(m[0],m[1]+'v'+(+m[2]-1)+'/');}
@@ -1023,7 +1035,8 @@ def render_html(doc, stats, sections_zh=None, only=None, review_info=None, cite_
            f"共 {total} 句，有标记 {total - s.get('ok', 0)} 句　·　<span class='toggle' id='toggle'>隐藏标记</span>"
            "　·　<span class='weights'>字体粗细 <span data-w='w1'>细</span><span data-w='w2'>中</span><span data-w='w3'>粗</span></span>"
            "　·　<span class='bolds' title='只作用于核心词（名词、动词、形容词、副词、数词、否定词和连字符复合词），the、of 这类虚词不变'>加粗 "
-           "<span data-w='none'>关</span><span data-w='bio'>首字母</span><span data-w='kw'>整词</span></span>"
+           "<span data-w='none'>关</span><span data-w='bio'>首字母</span><span data-w='grad' "
+           "title='首字母那几个字母一个比一个细、一个比一个淡'>渐变</span><span data-w='kw'>整词</span></span>"
            "　·　<span class='toggle' id='wst'>加宽词距：关</span>"
            + ("　·　<span class='clickmode' title='查词模式下点英文单词弹出词卡；任何模式下按住 Alt 点词都是查词'>点词 "
               "<span data-m='hl'>高亮</span><span data-m='dict'>查词</span></span>" if dictionary else "") +

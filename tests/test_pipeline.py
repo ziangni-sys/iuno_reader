@@ -56,6 +56,9 @@ try:
     assert "S1.F2" in {t["id"] for t in tasks}, "第 2 节引用了图 2，图 2 应被一起选上"
     for f in ("paper.zh.md", "paper.zh.html", "paper.en.md", "flags.md", "checked.json", "manifest.json"):
         assert os.path.exists(os.path.join(out, f)), f
+    page = open(os.path.join(out, "paper.zh.html"), encoding="utf-8").read()
+    assert "data-w='grad'" in page and "function gradeBold" in page and "body.grad .en .w.k .h .hg" in page, \
+        "加粗开关里应有「渐变」：按钮、拆字母的脚本和样式"
     print("等待翻译：任务说明与输出文件齐全 通过")
 
     # 2. 用真实译文中第 2 节的部分补上 → 等待审校
