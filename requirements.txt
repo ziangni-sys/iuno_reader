@@ -1,0 +1,7 @@
+# 必需：下载 arXiv 网页并拆成段落和句子（BeautifulSoup 用 lxml 解析）
+beautifulsoup4
+lxml
+# 可选：没有网页版时从 PDF 翻译
+pymupdf
+# 可选：网页里的点词高亮和首字母加粗；另需 python -m spacy download en_core_web_sm
+spacy

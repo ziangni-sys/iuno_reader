@@ -176,16 +176,33 @@ class Resolver:
         import contextlib
         if not self.cache_path:
             return contextlib.nullcontext(None)
-        import fcntl
+        try:
+            import fcntl
+        except ImportError:  # Windows 没有 fcntl，用 msvcrt 锁第一个字节
+            import msvcrt
+            fcntl = None
 
         @contextlib.contextmanager
         def held():
             with open(self.cache_path + ".lock", "a+") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                if fcntl:
+                    fcntl.flock(f, fcntl.LOCK_EX)
+                else:  # LK_LOCK 只重试 10 秒，几篇同时排队时可能等得更久，自己一直重试
+                    f.seek(0)
+                    while True:
+                        try:
+                            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                            break
+                        except OSError:
+                            time.sleep(0.2)
                 try:
                     yield f
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    if fcntl:
+                        fcntl.flock(f, fcntl.LOCK_UN)
+                    else:
+                        f.seek(0)
+                        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
         return held()
 
     def _save(self):

@@ -8,7 +8,7 @@ likely|unlikely	可能/很可能/大概/不太可能/未必	一定/必然	概率
 largely	大多/很大程度/主要/大体/基本/大部分	完全/全部	程度：不是全部
 partial|partially	部分/局部/不完全	完全/全部	程度：部分
 somewhat|slightly	有些/有点/略/稍/一定程度/某种程度	明显/显著	程度：弱
-approximately|roughly|around|about(?= \$?\d)	约/大约/大致/左右/近/上下		数值近似
+approximately|roughly|(?:around|about)(?= \$?\d| (?:a |an )?(?:half|third|quarter|dozen|hundred|thousand|million|billion)\b| (?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b)	约/大约/大致/左右/近/上下		数值近似（around、about 后面跟着数才算：centered around、around each sub-layer 不是）
 often|frequently	常/往往/经常/通常/多数时候/时常	总是/一直	频率
 sometimes|occasionally	有时/偶尔/有些时候	总是/经常	频率
 generally|typically|usually	一般/通常/往往/大体/大多	总是/一定	频率

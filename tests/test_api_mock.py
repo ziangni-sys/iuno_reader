@@ -160,15 +160,18 @@ dd = os.path.join(cli.ROOT, "data", PID)
 os.makedirs(dd, exist_ok=True)
 try:
     segs = [{"id": f"p{i}", "kind": "para", "section": "1 Intro", "en": "A b.", "sentences": ["A b."]} for i in range(8)]
-    json.dump({"segments": segs}, open(os.path.join(dd, "doc.json"), "w"))
-    json.dump({f"p{i}": {"sentences": [{"zh": "甲乙。"}]} for i in range(8)}, open(os.path.join(dd, "translation.json"), "w"))
+    with open(os.path.join(dd, "doc.json"), "w", encoding="utf-8") as f:
+        json.dump({"segments": segs}, f)
+    with open(os.path.join(dd, "translation.json"), "w", encoding="utf-8") as f:
+        json.dump({f"p{i}": {"sentences": [{"zh": "甲乙。"}]} for i in range(8)}, f)
 
     def ok_post(self, body):
         return {"choices": [{"message": {"content": json.dumps({"reviews": [{"verdict": "ok"}]})}}],
                 "usage": {"prompt_tokens": 3, "completion_tokens": 2}}
     T.OpenAICompatible._post = ok_post
     cli.main(["review", PID, "--mode", "blind", "--workers", "3", "--sections", "all"])
-    out = json.load(open(os.path.join(dd, "review.blind.json")))
+    with open(os.path.join(dd, "review.blind.json"), encoding="utf-8") as f:
+        out = json.load(f)
     assert len([k for k in out if not k.startswith("__")]) == 8, out.keys()
     assert out["__meta__"]["usage"]["calls"] == 8 and out["__meta__"]["usage"]["completion_tokens"] == 16, out["__meta__"]
 finally:

@@ -4,6 +4,17 @@ arXiv 论文的**逐句双语对照**阅读工具：每段英文下面紧跟中�
 
 不翻译 PDF。PDF 翻译要先拆版面再重新排版，这一步可能会悄悄丢掉整段文字（例如 BabelDOC 的 issue #620、#613）。这里直接用 arXiv 的 HTML 版（由作者上传的 LaTeX 生成；arXiv 没有时用 ar5iv 的同格式网页），段落和公式都是原样的，译文和原文可以逐句对齐、逐句检查。
 
+## 安装
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m spacy download en_core_web_sm   # 可选：点词高亮和首字母加粗
+```
+
+- 必需的只有 `beautifulsoup4` 和 `lxml`（拆分网页）。`pymupdf` 只在从 PDF 翻译时用；`spacy` 和 `en_core_web_sm` 只用于网页的点词高亮和加粗，没装时这两项自动关闭。查词另需本地词典，见下文「本地词典」。
+- **Windows**：虚拟环境里的 Python 在 `.venv\Scripts\python.exe`，下文的 `.venv/bin/python` 都换成它，例如 `.venv\Scripts\python -m pip install -r requirements.txt`。生成给 agent 的任务说明会自动写成当前用的 Python。接口密钥文件在 Windows 上没有 600 权限（chmod 只管只读），靠用户目录本身的权限保护。
+
 ## 流水线：一条命令
 
 ```bash

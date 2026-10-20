@@ -141,5 +141,6 @@ with tempfile.TemporaryDirectory() as root:
     check("词典：原形词条一起带上，[网络] 释义去掉", r.get("elicit", {}).get("t") == "vt. 引出, 推导出", r)
     check("词典：大小写都有时取小写那条", r["inert"]["t"] == "a. 惰性的" and r["inert"]["g"] == "托福 柯林斯★", r)
     check("词典：查不到、不像单词的都不出现", "nosuchword" not in r and "the$" not in r, r)
+    db.close()  # Windows 上打开着的库文件删不掉，临时目录清理会失败
 
 sys.exit(0 if ok else 1)

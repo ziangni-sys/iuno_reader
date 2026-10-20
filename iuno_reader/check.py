@@ -37,6 +37,27 @@ NUM_WORDS = {
 NUM_ZH = {"0": "零", "1": "一", "2": "二两", "3": "三", "4": "四", "5": "五", "6": "六", "7": "七", "8": "八",
           "9": "九", "10": "十", "11": "十一", "12": "十二"}  # base-10 → 十进制、2D → 二维 这类写法
 
+# 带千分位或量级的数（100,000、4.5 million、40K、36M）：译文换算成「万」「亿」也算保留（450 万、4 万）
+SCALED = re.compile(r"(?<![A-Za-z\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+                    r"(?:\s?(thousand|million|billion)\b|([KkMB])(?![A-Za-z\d]))?")
+SCALE = {"thousand": 1e3, "k": 1e3, "million": 1e6, "m": 1e6, "billion": 1e9, "b": 1e9}
+
+# 限定词表里的禁用词也是常见的普通词（determine →「确定」、all →「全部」）。原文里有几个对应的英文词，
+# 译文里就允许出现几次，多出来的才算语气被加强；「一定程度」是 somewhat 的译法，不算「一定」
+FORBID_SOURCE = {
+    "确定": r"\b(?:determin|identif|decid|establish|specif|ascertain)\w*",
+    "证明": r"\b(?:prov(?:e|es|ed|en|ing)|proofs?|demonstrat\w*)\b",
+    "证实": r"\b(?:confirm|verif|validat|corroborat)\w*",
+    "一定": r"\b(?:certain(?:ly)?|must|necessar\w*|definite\w*)\b",
+    "必然": r"\b(?:inevitab\w*|necessar\w*)\b",
+    "完全": r"\b(?:complete(?:ly)?|fully|entire(?:ly)?|totally|perfect(?:ly)?)\b",
+    "全部": r"\b(?:all|entire(?:ly)?|every|whole)\b",
+    "显著": r"\b(?:significant(?:ly)?|marked(?:ly)?|substantial(?:ly)?|considerabl[ey])\b",
+    "明显": r"\b(?:clear(?:ly)?|obvious(?:ly)?|evident(?:ly)?|noticeabl[ey])\b",
+    "总是": r"\b(?:always|invariabl[ey])\b",
+}
+FORBID_PHRASE = {"一定": "一定程度"}
+
 
 def _norm_math(s):
     """公式比较前统一写法：去空白，y^{\\prime} 和 y' 视为一样。"""
@@ -58,13 +79,32 @@ def _strip_spans(s):
 
 
 def _unnegated(word, zh):
-    """译文里有没有一处 word，它前面三个字以内没有不、未、没、非、无。"""
-    i = zh.find(word)
+    """译文里有几处 word，它前面三个字以内没有不、未、没、非、无。"""
+    zh = zh.replace(FORBID_PHRASE[word], "　" * len(FORBID_PHRASE[word])) if word in FORBID_PHRASE else zh
+    n, i = 0, zh.find(word)
     while i >= 0:
         if not re.search(r"[不未没非无]", zh[max(0, i - 3):i]):
-            return True
+            n += 1
         i = zh.find(word, i + 1)
-    return False
+    return n
+
+
+def _strengthened(word, zh, en):
+    """禁用词在译文里没被否定的次数，多于原文里对应英文词的次数，才算语气被加强。"""
+    src = FORBID_SOURCE.get(word)
+    return _unnegated(word, zh) > (len(re.findall(src, en, re.I)) if src else 0)
+
+
+def _fmt(x):
+    return f"{x:.4f}".rstrip("0").rstrip(".")
+
+
+def _scaled_kept(num, unit, zh):
+    """带千分位或量级的数，译文写成原数、不带逗号的整数，或者换算成万、亿，都算保留。"""
+    v = float(num.replace(",", "")) * SCALE.get((unit or "").lower(), 1)
+    forms = [re.escape(num), re.escape(_fmt(v)), re.escape(f"{v:,.0f}") if v == int(v) else None,
+             re.escape(_fmt(v / 1e4)) + r"\s*万", re.escape(_fmt(v / 1e8)) + r"\s*亿"]
+    return any(re.search(rf"(?<![\d.,]){f}(?![\d])", zh) for f in forms if f)
 
 
 def check_sentence(en, zh, terms, hedges, conf=None, note=""):
@@ -99,13 +139,16 @@ def check_sentence(en, zh, terms, hedges, conf=None, note=""):
         if y not in zh:
             add("red", "citation", f"引用年份 {y} 没有出现在译文里")
     years = set(re.findall(r"\d{4}", " ".join(YEAR.findall(en_plain))))
-    for n in NUM.findall(en_plain):
+    # 带千分位或量级、译文里换算过的数，整个拿掉，后面按普通数字、数量词查时不再算
+    en_num = SCALED.sub(lambda m: " " if (m.group(2) or m.group(3) or "," in m.group(1))
+                        and _scaled_kept(m.group(1), m.group(2) or m.group(3), zh) else m.group(0), en_plain)
+    for n in NUM.findall(en_num):
         if n in years:
             continue
         if n not in zh_plain and n not in zh and not any(ch in zh for ch in NUM_ZH.get(n, "") or "\0"):
             add("red", "number", f"数字 {n} 没有出现在译文里")
     # one 作代词时不是数量词：one another（彼此）、One might/may/could…（有人、人们）
-    en_num = re.sub(r"\bone another\b|\b[Oo]ne (?:might|may|could|can|would|should|must)\b", " ", en_plain)
+    en_num = re.sub(r"\bone another\b|\b[Oo]ne (?:might|may|could|can|would|should|must)\b", " ", en_num)
     for w, zh_opts in NUM_WORDS.items():
         if re.search(rf"\b{w}\b", en_num, re.I) and not any(ch in zh for ch in zh_opts):
             add("red", "number_word", f"原文的数量词 '{w}' 在译文里没找到对应")
@@ -121,7 +164,7 @@ def check_sentence(en, zh, terms, hedges, conf=None, note=""):
         if not m:
             continue
         ok = any(o in zh for o in h["zh_ok"])
-        forbid = [f for f in h["zh_forbid"] if _unnegated(f, zh)]
+        forbid = [f for f in h["zh_forbid"] if _strengthened(f, zh, en_plain)]
         if forbid and not ok:
             add("red", "hedge_strengthened", f"限定词 '{m.group(0)}' 可能被译重了（译文出现「{'、'.join(forbid)}」）")
         elif not ok:
@@ -138,14 +181,16 @@ def check_sentence(en, zh, terms, hedges, conf=None, note=""):
 
     # 6. 英文残留：去掉引用、术语和专名后，仍有连续 4 个以上英文单词
     residue = re.sub(r"[A-Z][A-Za-z\-]+(?: et al\.)?,?\s*\(?(?:19|20)\d{2}[a-z]?\)?", " ", zh_plain)
-    for t in terms:
-        residue = re.sub(re.escape(t), " ", residue, flags=re.I)
+    for t in terms:  # 按整词去掉，免得术语 DE 把 Extended 切成「Exten d」
+        residue = re.sub(rf"(?<![A-Za-z]){re.escape(t)}(?![A-Za-z])", " ", residue, flags=re.I)
     runs = re.findall(r"(?:[A-Za-z][A-Za-z\-']*\s+){3,}[A-Za-z][A-Za-z\-']*", residue)
     if runs:
         add("yellow", "residue", f"译文里残留较长的英文：「{runs[0][:40]}」")
 
-    # 7. 长度比例（中文字符数 / 英文单词数）
-    en_words = len(re.findall(r"[A-Za-z]+", en_plain))
+    # 7. 长度比例（中文字符数 / 英文单词数）。原样抄进译文的专名和缩写（K80、TFLOPS、BLEU）不占汉字，不算；
+    #    全小写的词照算，整句没翻、照抄英文时仍然会标偏短
+    zh_latin = set(re.findall(r"[A-Za-z]+", zh_plain))
+    en_words = sum(1 for w in re.findall(r"[A-Za-z]+", en_plain) if w.islower() or w not in zh_latin)
     zh_chars = len(re.findall(r"[一-鿿]", zh_plain))
     if en_words >= 8:
         ratio = zh_chars / en_words

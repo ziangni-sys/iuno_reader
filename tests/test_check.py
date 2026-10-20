@@ -8,7 +8,8 @@ from iuno_reader.extract import split_sentences  # noqa: E402
 from iuno_reader.glossary import load_hedges  # noqa: E402
 
 H = load_hedges()
-T = {"inert": {"zh": ["惰性的"], "note": ""}, "few-shot": {"zh": ["少量示例"], "note": ""}}
+T = {"inert": {"zh": ["惰性的"], "note": ""}, "few-shot": {"zh": ["少量示例"], "note": ""},
+     "DE": {"zh": ["狄利克雷能量"], "note": ""}}
 
 
 def codes(en, zh, conf="high"):
@@ -41,6 +42,31 @@ cases = [
     ("We use few-shot examples.", "我们使用 few-shot 例子。", set(), {"term"}),
     ("We use few-shot examples.", "我们使用一些例子。", {"term"}, set()),
     ("It works.", "", {"missing"}, set()),
+    # around、about 后面跟着数才是「约」；作介词（周围、以……为中心）不算
+    ("We employ a residual connection around each of the two sub-layers.", "我们在两个子层周围各使用一个残差连接。", set(), {"hedge_missing"}),
+    ("It attends to a neighborhood centered around the output position.", "它关注以输出位置为中心的邻域。", set(), {"hedge_missing"}),
+    ("Training takes around 5 hours.", "训练需要 5 小时。", {"hedge_missing"}, set()),
+    ("It uses around half of the budget.", "它用掉一半预算。", {"hedge_missing"}, set()),
+    # 带量级、千分位的数换算成万、亿算保留；换算错了仍然要标
+    ("The dataset has about 4.5 million sentence pairs.", "该数据集约有 450 万个句子对。", set(), {"number", "hedge_missing"}),
+    ("We train on about 40K sentences.", "我们在约 4 万个句子上训练。", set(), {"number"}),
+    ("We train on 40 thousand sentences.", "我们在 4 万个句子上训练。", set(), {"number", "number_word"}),
+    ("We trained for 100,000 steps.", "我们训练了 10 万步。", set(), {"number"}),
+    ("We trained for 100,000 steps.", "我们训练了 100000 步。", set(), {"number"}),
+    ("The corpus has 1.2 billion tokens.", "语料有 12 亿个词元。", set(), {"number"}),
+    ("The dataset has 4.5 million pairs.", "该数据集有 45 万个句子对。", {"number"}, set()),
+    # 禁用词在原文里有对应的英文词（determining →「确定」）不算语气加强；「一定程度」不是「一定」
+    ("This suggests that determining compatibility is not easy.", "这表明确定兼容性并不容易。", set(), {"hedge_mixed", "hedge_strengthened"}),
+    ("This suggests that it fails.", "这表明它确定会失败。", {"hedge_mixed"}, set()),
+    ("The model may help to some extent.", "该模型可能在一定程度上有帮助。", set(), {"hedge_mixed"}),
+    ("The model may help.", "该模型一定有帮助。", {"hedge_strengthened"}, set()),
+    # 照抄的专名、缩写不算英文词数；整句照抄英文仍然算偏短
+    ("We used values of 2.8, 3.7, 6.0 and 9.5 TFLOPS for K80, K40, M40 and P100, respectively.",
+     "对于 K80、K40、M40 和 P100，我们分别使用 2.8、3.7、6.0 和 9.5 TFLOPS。", set(), {"too_short"}),
+    ("We evaluate the model on many different tasks and datasets here.",
+     "We evaluate the model on many different tasks and datasets here.", {"too_short"}, set()),
+    # 去掉术语时按整词：术语 DE 不能把 Extended 切开
+    ("The Extended Neural GPU [16] is fast.", "Extended Neural GPU [16] 很快。", set(), {"residue"}),
 ]
 
 fail = 0
