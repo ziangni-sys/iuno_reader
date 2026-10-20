@@ -36,7 +36,8 @@ try:
     p = next(x for x in st["providers"] if x["id"] == r["id"])
     assert p["key_tail"] == "1234" and "key" not in p and p["base"] == "https://example.com/v1"
     assert "sk-secret1234" not in json.dumps(st), "密钥不能出现在网页拿到的数据里"
-    assert oct(os.stat(os.path.join(os.environ["IUNO_READER_HOME"], "providers.json")).st_mode)[-3:] == "600"
+    if os.name != "nt":  # Windows 的 chmod 只管只读，权限靠用户目录的 ACL
+        assert oct(os.stat(os.path.join(os.environ["IUNO_READER_HOME"], "providers.json")).st_mode)[-3:] == "600"
     print("接口：添加、密钥不外露、文件只有自己能读 通过")
 
     # 方案：内置的不能重名覆盖；自己的可以保存和删除

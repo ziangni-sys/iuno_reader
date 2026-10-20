@@ -160,7 +160,10 @@ class Queue:
             if act in ("pause", "delete"):
                 proc = self.procs.get(n)
                 if proc and proc.poll() is None:
-                    os.killpg(proc.pid, signal.SIGTERM)
+                    if hasattr(os, "killpg"):
+                        os.killpg(proc.pid, signal.SIGTERM)
+                    else:  # Windows 没有进程组信号
+                        proc.terminate()
                 j["status"], j["step"] = "paused", "已暂停"
                 if act == "delete":
                     self.jobs.remove(j)

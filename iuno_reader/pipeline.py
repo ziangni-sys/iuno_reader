@@ -18,6 +18,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from collections import Counter
 
 from . import extract as ex
@@ -235,6 +236,15 @@ def _add_usage(total, new):
     return total
 
 
+def _py(root):
+    """写进任务说明的 Python 命令：当前解释器相对仓库的路径（Linux 上 .venv/bin/python，Windows 上 .venv/Scripts/python.exe）。"""
+    try:
+        rel = os.path.relpath(sys.executable, root)
+    except ValueError:  # Windows 上不在同一个盘
+        return sys.executable
+    return sys.executable if rel.startswith("..") else rel.replace(os.sep, "/")
+
+
 def _agent_translate_md(P, n_seg, n_sent):
     return f"""# 翻译任务：arXiv {P.pid}
 
@@ -249,7 +259,7 @@ def _agent_translate_md(P, n_seg, n_sent):
 ```
 
   每段的句数必须和输入完全相同。已有的条目不要删除。
-- 完成后运行：`cd {P.root} && .venv/bin/python -m iuno_reader run {P.pid}`，流水线会接着核对、审校、渲染。
+- 完成后运行：`cd {P.root} && {_py(P.root)} -m iuno_reader run {P.pid}`，流水线会接着核对、审校、渲染。
 
 ## 译者规则
 
@@ -264,9 +274,9 @@ def _agent_review_md(P, n_seg, n_sent, title):
             .replace("{N_SEG}", str(n_seg)).replace("{N_SENT}", str(n_sent)).replace("{PAPER}", f"{title}（arXiv {P.pid}）"))
     return (f"# 审校任务：arXiv {P.pid}\n\n"
             "> 重要：如果你和译者是同一个模型，或者读得到和译者相同的人设说明，你的审校只能算「同模型复看」。"
-            f"导入时请如实写明你的模型：\n> `cd {P.root} && .venv/bin/python -m iuno_reader import-review {P.pid} "
+            f"导入时请如实写明你的模型：\n> `cd {P.root} && {_py(P.root)} -m iuno_reader import-review {P.pid} "
             f"{P.d('review.agent.raw.json')} --name <你的名字> --reviewer-model <你的模型>`（同模型再加 `--same-model`），"
-            f"然后运行 `.venv/bin/python -m iuno_reader run {P.pid}` 重新渲染。\n\n---\n\n" + body + "\n")
+            f"然后运行 `{_py(P.root)} -m iuno_reader run {P.pid}` 重新渲染。\n\n---\n\n" + body + "\n")
 
 
 def paper_en_md(doc):

@@ -49,7 +49,7 @@ def import_survey(src, kb, project, dry=False):
             if not (fn.lower().endswith((".pdf", ".html", ".htm")) or fn == "INDEX.md"):
                 continue
             s = os.path.join(dirpath, fn)
-            rel = os.path.relpath(s, src)
+            rel = os.path.relpath(s, src).replace("\\", "/")
             d = os.path.join(dst_root, rel)
             if os.path.exists(d):
                 if filecmp.cmp(s, d, shallow=False):
